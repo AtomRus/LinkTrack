@@ -1,0 +1,161 @@
+server:
+  port: 8081
+
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health,info,prometheus
+      path-mapping:
+        prometheus: metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+    prometheus:
+      access: unrestricted
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        grpc.server.requests: true
+        request_duration_ms: true
+  otlp:
+    metrics:
+      export:
+        enabled: ${OTEL_METRICS_EXPORT_ENABLED:false}
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          enabled: ${OTEL_TRACES_EXPORT_ENABLED:false}
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+
+spring:
+  application:
+    name: scrapper
+  cache:
+    type: none
+  scheduler:
+    interval: 40s
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:19092}
+    properties:
+      schema.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8086}
+      auto.register.schemas: true
+      key.subject.name.strategy: io.confluent.kafka.serializers.subject.RecordNameStrategy
+      value.subject.name.strategy: io.confluent.kafka.serializers.subject.RecordNameStrategy
+  grpc:
+    client:
+      bot-service:
+        negotiation-type: plaintext
+    server:
+      port: 9091
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  datasource:
+    username: ${DB_LOGIN:postgres}
+    password: ${DB_PASSWORD:postgres}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/scrapper}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_MAXIMUM_POOL_SIZE:50}
+      connection-timeout: ${SPRING_DATASOURCE_CONNECTION_TIMEOUT:30000}
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      timeout: ${SPRING_DATA_REDIS_TIMEOUT:3s}
+      connect-timeout: ${SPRING_DATA_REDIS_CONNECT_TIMEOUT:3s}
+      client-name: ${SPRING_DATA_REDIS_CLIENT_NAME:scrapper}
+
+
+app:
+  metrics:
+    links-refresh-ms: 60000
+  cache:
+    valkey:
+      links-list-cache-name: ${APP_CACHE_VALKEY_LINKS_LIST_CACHE_NAME:links-list-cache}
+      links-list-by-tag-cache-name: ${APP_CACHE_VALKEY_LINKS_LIST_BY_TAG_CACHE_NAME:links-list-by-tag-cache}
+      ttl: ${APP_CACHE_VALKEY_TTL:60s}
+      null-values-enabled: ${APP_CACHE_VALKEY_NULL_VALUES_ENABLED:false}
+      client-side-caching-enabled: ${APP_CACHE_VALKEY_CLIENT_SIDE_CACHING_ENABLED:false}
+  load-test:
+    api-enabled: ${APP_LOAD_TEST_API_ENABLED:false}
+  link-updater:
+    mode: ${APP_LINK_UPDATER_MODE:VIRTUAL_THREADS}
+    os-threads: ${APP_LINK_UPDATER_OS_THREADS:8}
+  notifications:
+    transport: ${APP_NOTIFICATIONS_TRANSPORT:kafka}
+    kafka:
+      topic: ${APP_NOTIFICATIONS_KAFKA_TOPIC:link_updates}
+      raw-topic: ${APP_NOTIFICATIONS_KAFKA_RAW_TOPIC:link.raw-updates}
+    outbox:
+      publish-interval-ms: ${APP_NOTIFICATIONS_OUTBOX_PUBLISH_INTERVAL_MS:1000}
+      batch-size: ${APP_NOTIFICATIONS_OUTBOX_BATCH_SIZE:50}
+      max-attempts: ${APP_NOTIFICATIONS_OUTBOX_MAX_ATTEMPTS:10}
+      send-timeout-ms: ${APP_NOTIFICATIONS_OUTBOX_SEND_TIMEOUT_MS:10000}
+    http:
+      base-url: ${APP_BOT_BASE_URL:http://localhost:8080}
+      updates-path: /updates
+  stackoverflow:
+    key: ${STACKOVERFLOW_KEY}
+    access-token: ${STACKOVERFLOW_ACCESS_KEY}
+    link: https://api.stackexchange.com/2.3
+  github:
+    token: ${GITHUB_TOKEN}
+    link: https://api.github.com
+  grpc:
+    bot:
+      target: ${BOT_GRPC_URL:static://localhost:9092}
+  scheduler:
+    await-timeout-ms: ${APP_SCHEDULER_AWAIT_TIMEOUT_MS:60000}
+  database-access-type: jpa
+  resilience:
+    github:
+      timeout-ms: ${APP_RESILIENCE_GITHUB_TIMEOUT_MS:3000}
+      retry:
+        max-attempts: ${APP_RESILIENCE_GITHUB_RETRY_MAX_ATTEMPTS:3}
+        backoff-ms: ${APP_RESILIENCE_GITHUB_RETRY_BACKOFF_MS:300}
+        retryable-status-codes: [429, 500, 502, 503, 504]
+      circuit-breaker:
+        failure-rate-threshold: ${APP_RESILIENCE_GITHUB_CB_FAILURE_RATE_THRESHOLD:50}
+        sliding-window-size: ${APP_RESILIENCE_GITHUB_CB_SLIDING_WINDOW_SIZE:10}
+        minimum-number-of-calls: ${APP_RESILIENCE_GITHUB_CB_MIN_CALLS:5}
+        wait-duration-in-open-state-ms: ${APP_RESILIENCE_GITHUB_CB_WAIT_OPEN_MS:30000}
+        permitted-calls-in-half-open-state: ${APP_RESILIENCE_GITHUB_CB_HALF_OPEN_CALLS:3}
+    stackoverflow:
+      timeout-ms: ${APP_RESILIENCE_STACKOVERFLOW_TIMEOUT_MS:3000}
+      retry:
+        max-attempts: ${APP_RESILIENCE_STACKOVERFLOW_RETRY_MAX_ATTEMPTS:3}
+        backoff-ms: ${APP_RESILIENCE_STACKOVERFLOW_RETRY_BACKOFF_MS:300}
+        retryable-status-codes: [429, 500, 502, 503, 504]
+      circuit-breaker:
+        failure-rate-threshold: ${APP_RESILIENCE_STACKOVERFLOW_CB_FAILURE_RATE_THRESHOLD:50}
+        sliding-window-size: ${APP_RESILIENCE_STACKOVERFLOW_CB_SLIDING_WINDOW_SIZE:10}
+        minimum-number-of-calls: ${APP_RESILIENCE_STACKOVERFLOW_CB_MIN_CALLS:5}
+        wait-duration-in-open-state-ms: ${APP_RESILIENCE_STACKOVERFLOW_CB_WAIT_OPEN_MS:30000}
+        permitted-calls-in-half-open-state: ${APP_RESILIENCE_STACKOVERFLOW_CB_HALF_OPEN_CALLS:3}
+    notification-http:
+      timeout-ms: ${APP_RESILIENCE_NOTIFICATION_HTTP_TIMEOUT_MS:3000}
+      retry:
+        max-attempts: ${APP_RESILIENCE_NOTIFICATION_HTTP_RETRY_MAX_ATTEMPTS:3}
+        backoff-ms: ${APP_RESILIENCE_NOTIFICATION_HTTP_RETRY_BACKOFF_MS:300}
+        retryable-status-codes: [429, 500, 502, 503, 504]
+      circuit-breaker:
+        failure-rate-threshold: ${APP_RESILIENCE_NOTIFICATION_HTTP_CB_FAILURE_RATE_THRESHOLD:50}
+        sliding-window-size: ${APP_RESILIENCE_NOTIFICATION_HTTP_CB_SLIDING_WINDOW_SIZE:10}
+        minimum-number-of-calls: ${APP_RESILIENCE_NOTIFICATION_HTTP_CB_MIN_CALLS:5}
+        wait-duration-in-open-state-ms: ${APP_RESILIENCE_NOTIFICATION_HTTP_CB_WAIT_OPEN_MS:30000}
+        permitted-calls-in-half-open-state: ${APP_RESILIENCE_NOTIFICATION_HTTP_CB_HALF_OPEN_CALLS:3}
+    rate-limit:
+      enabled: ${APP_RESILIENCE_RATE_LIMIT_ENABLED:true}
+      capacity: ${APP_RESILIENCE_RATE_LIMIT_CAPACITY:30}
+      refill-tokens: ${APP_RESILIENCE_RATE_LIMIT_REFILL_TOKENS:30}
+      refill-period-seconds: ${APP_RESILIENCE_RATE_LIMIT_REFILL_PERIOD_SECONDS:60}

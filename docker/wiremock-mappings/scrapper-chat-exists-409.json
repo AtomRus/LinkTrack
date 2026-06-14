@@ -1,0 +1,19 @@
+{
+    "priority": 1,
+    "request": {
+        "method": "POST",
+        "url": "/tg-chat/666"
+    },
+    "response": {
+        "status": 409,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "jsonBody": {
+            "description": "Чат уже зарегистрирован",
+            "code": "409",
+            "exceptionName": "ChatAlreadyExistsException",
+            "exceptionMessage": "User with ID 666 is already in the system"
+        }
+    }
+}

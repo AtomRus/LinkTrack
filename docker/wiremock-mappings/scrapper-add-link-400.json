@@ -1,0 +1,23 @@
+{
+    "request": {
+        "method": "POST",
+        "url": "/links",
+        "bodyPatterns": [
+            {
+                "doesNotMatch": ".*http?://.*"
+            }
+        ]
+    },
+    "response": {
+        "status": 400,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "jsonBody": {
+            "description": "Некорректные параметры запроса",
+            "code": "400",
+            "exceptionName": "InvalidLinkException",
+            "exceptionMessage": "The provided URL is not a valid GitHub or StackOverflow link"
+        }
+    }
+}

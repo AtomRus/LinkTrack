@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package backend.academy.linktracker;
+
+import "google/protobuf/empty.proto";
+
+option java_package = "backend.academy.linktracker.bot.grpc";
+option java_multiple_files = true;
+
+service UpdateService {
+    rpc sendUpdate(LinkUpdate) returns (google.protobuf.Empty);
+}
+message LinkUpdate {
+    int64 id = 1;
+    string url = 2;
+    string description = 3;
+    repeated int64 tgChatIds = 4;
+}

@@ -1,0 +1,185 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Количество входящих сообщений пользователя в Telegram-бот в секунду.",
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 10,
+      "targets": [
+        {
+          "expr": "sum(rate(user_messages_total{application=\"bot\"}[1m]))",
+          "legendFormat": "messages/s",
+          "refId": "A"
+        }
+      ],
+      "title": "Bot — пользовательские сообщения / с",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Входящие сообщения с разбивкой по типу: command (команда /...) или text.",
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 11,
+      "targets": [
+        {
+          "expr": "sum(rate(user_messages_total{application=\"bot\"}[1m])) by (request_type)",
+          "legendFormat": "{{request_type}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Bot — сообщения по request_type",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Количество отправленных уведомлений об обновлениях ссылок в секунду.",
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 12,
+      "targets": [
+        {
+          "expr": "sum(rate(sent_notification_total{application=\"bot\"}[1m]))",
+          "legendFormat": "notifications/s",
+          "refId": "A"
+        }
+      ],
+      "title": "Bot — отправленные нотификации / с",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Счётчик обработанных команд бота по имени команды.",
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 13,
+      "targets": [
+        {
+          "expr": "sum(rate(command_requests_total{application=\"bot\"}[1m])) by (command)",
+          "legendFormat": "{{command}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Bot — обработанные команды / с",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "50-й, 95-й и 99-й перцентиль времени обработки одной команды в Bot (scope=telegram_command).",
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "id": 14,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(command_duration_ms_seconds_bucket{application=\"bot\", scope=\"telegram_command\"}[5m])) by (le, scope_type))",
+          "legendFormat": "p50 {{scope_type}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(command_duration_ms_seconds_bucket{application=\"bot\", scope=\"telegram_command\"}[5m])) by (le, scope_type))",
+          "legendFormat": "p95 {{scope_type}}",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(command_duration_ms_seconds_bucket{application=\"bot\", scope=\"telegram_command\"}[5m])) by (le, scope_type))",
+          "legendFormat": "p99 {{scope_type}}",
+          "refId": "C"
+        }
+      ],
+      "title": "Bot — перцентили обработки команд",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Текущее количество ссылок в БД на мониторинге. Разбивка по домену: github, stackoverflow.",
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "id": 20,
+      "targets": [
+        {
+          "expr": "links_on_track_total{application=\"scrapper\"}",
+          "legendFormat": "{{tracked_source}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Scrapper — ссылки на мониторинге",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Запросы к API Scrapper по источнику (http_api, grpc).",
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "id": 21,
+      "targets": [
+        {
+          "expr": "sum(rate(api_requests_total{application=\"scrapper\"}[1m])) by (source)",
+          "legendFormat": "{{source}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Scrapper — API requests / с",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "50-й, 95-й и 99-й перцентиль длительности scrape-цикла по типу источника (github, stackoverflow).",
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 },
+      "id": 22,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(request_duration_ms_seconds_bucket{application=\"scrapper\", scope=\"external_source\", scope_type=~\"github|stackoverflow\"}[5m])) by (le, scope_type))",
+          "legendFormat": "p50 {{scope_type}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(request_duration_ms_seconds_bucket{application=\"scrapper\", scope=\"external_source\", scope_type=~\"github|stackoverflow\"}[5m])) by (le, scope_type))",
+          "legendFormat": "p95 {{scope_type}}",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(request_duration_ms_seconds_bucket{application=\"scrapper\", scope=\"external_source\", scope_type=~\"github|stackoverflow\"}[5m])) by (le, scope_type))",
+          "legendFormat": "p99 {{scope_type}}",
+          "refId": "C"
+        }
+      ],
+      "title": "Scrapper — перцентили scrape по источнику",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["link-tracker", "business"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": true, "text": "bot", "value": "bot" },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Application",
+        "multi": false,
+        "name": "application",
+        "options": [
+          { "selected": false, "text": "All", "value": "$__all" },
+          { "selected": true, "text": "bot", "value": "bot" },
+          { "selected": false, "text": "scrapper", "value": "scrapper" }
+        ],
+        "query": "bot,scrapper",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "title": "Link Tracker — Business Metrics",
+  "uid": "link-tracker-business",
+  "version": 1
+}

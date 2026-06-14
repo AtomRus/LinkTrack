@@ -1,0 +1,9 @@
+{
+    "request": {
+        "method": "POST",
+        "urlPattern": "/tg-chat/[0-9]+"
+    },
+    "response": {
+        "status": 200
+    }
+}

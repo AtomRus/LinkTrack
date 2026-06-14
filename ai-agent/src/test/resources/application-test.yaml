@@ -1,0 +1,33 @@
+ai-agent:
+  filtering:
+    stop-words:
+      - spam
+      - ads
+      - promo
+    excluded-authors:
+      - bot-user
+    min-length: 20
+  summarization:
+    threshold: 500
+  prioritization:
+    high-keywords:
+      - critical
+      - urgent
+      - breaking
+      - security
+    low-keywords:
+      - minor
+      - typo
+      - chore
+      - docs
+  grouping:
+    window-ms: 200
+  kafka:
+    raw-topic: link.raw-updates
+    processed-topic: link.processed-updates
+    group-id: ai-agent-test
+
+spring:
+  kafka:
+    consumer:
+      auto-offset-reset: earliest

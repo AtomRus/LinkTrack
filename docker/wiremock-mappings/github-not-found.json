@@ -1,0 +1,12 @@
+{
+    "priority": 10,
+    "request": {
+        "method": "GET",
+        "urlPattern": "/repos/.*"
+    },
+    "response": {
+        "status": 404,
+        "headers": { "Content-Type": "application/json" },
+        "body": "{\"message\": \"Not Found\", \"documentation_url\": \"https://docs.github.com/rest\"}"
+    }
+}

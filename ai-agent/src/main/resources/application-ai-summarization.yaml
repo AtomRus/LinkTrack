@@ -1,0 +1,6 @@
+spring:
+  config:
+    activate:
+      on-property:
+        name: ai-agent.summarization.mode
+        having-value: ai

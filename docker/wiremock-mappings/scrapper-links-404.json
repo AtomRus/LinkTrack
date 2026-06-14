@@ -1,0 +1,24 @@
+{
+    "priority": 1,
+    "request": {
+        "method": "GET",
+        "url": "/links",
+        "headers": {
+            "Tg-Chat-Id": {
+                "equalTo": "404"
+            }
+        }
+    },
+    "response": {
+        "status": 404,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "jsonBody": {
+            "description": "Чат не найден",
+            "code": "404",
+            "exceptionName": "ChatNotFoundException",
+            "exceptionMessage": "Chat with ID 404 was not found in our database"
+        }
+    }
+}

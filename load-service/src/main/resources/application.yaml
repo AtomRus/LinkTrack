@@ -1,0 +1,23 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: load-service
+  grpc:
+    client:
+      default:
+        negotiation-type: plaintext
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+load:
+  grpc:
+    scrapper-target: ${GRPC_SCRAPPER_ADDRESS:static://localhost:9091}

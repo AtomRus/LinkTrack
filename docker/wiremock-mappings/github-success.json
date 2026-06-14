@@ -1,0 +1,59 @@
+{
+    "request": {
+        "method": "GET",
+        "urlPattern": "/repos/AtomRus/.*"
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "jsonBody": {
+            "id": 55443322,
+            "node_id": "R_kgDOMySteamBerries",
+            "name": "MySteamBerries",
+            "full_name": "AtomRus/MySteamBerries",
+            "private": false,
+            "owner": {
+                "login": "AtomRus",
+                "id": 100500,
+                "avatar_url": "https://github.com/AtomRus.png",
+                "type": "User"
+            },
+            "html_url": "https://github.com/AtomRus/MySteamBerries",
+            "description": "Smart Wishlist for marketplaces",
+            "fork": false,
+            "url": "http://wiremock:8085/repos/AtomRus/MySteamBerries",
+            "created_at": "2026-01-01T12:00:00Z",
+            "updated_at": "2026-03-22T20:30:00Z",
+            "pushed_at": "2026-03-22T20:45:00Z",
+            "git_url": "git://github.com/AtomRus/MySteamBerries.git",
+            "ssh_url": "git@github.com:AtomRus/MySteamBerries.git",
+            "clone_url": "https://github.com/AtomRus/MySteamBerries.git",
+            "svn_url": "https://github.com/AtomRus/MySteamBerries",
+            "homepage": "https://github.com/AtomRus/MySteamBerries",
+            "size": 2048,
+            "stargazers_count": 15,
+            "watchers_count": 15,
+            "language": "Java",
+            "has_issues": true,
+            "has_projects": true,
+            "has_downloads": true,
+            "has_wiki": true,
+            "has_pages": false,
+            "forks_count": 2,
+            "archived": false,
+            "disabled": false,
+            "open_issues_count": 0,
+            "license": {
+                "key": "mit",
+                "name": "MIT License",
+                "spdx_id": "MIT",
+                "url": "https://api.github.com/licenses/mit"
+            },
+            "allow_forking": true,
+            "visibility": "public",
+            "default_branch": "main"
+        }
+    }
+}

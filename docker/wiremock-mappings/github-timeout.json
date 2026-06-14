@@ -1,0 +1,11 @@
+{
+    "request": {
+        "method": "GET",
+        "url": "/repos/slow-user/slow-repo"
+    },
+    "response": {
+        "status": 200,
+        "fixedDelayMilliseconds": 5000,
+        "body": "{\"message\": \"I am very slow\"}"
+    }
+}

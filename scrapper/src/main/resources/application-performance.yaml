@@ -1,0 +1,38 @@
+spring:
+  devtools:
+    restart:
+      enabled: false
+  task:
+    scheduling:
+      enabled: false
+  datasource:
+    username: ${DB_LOGIN:postgres}
+    password: ${DB_PASSWORD:postgres}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/scrapper_perf}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_MAXIMUM_POOL_SIZE:50}
+      connection-timeout: ${SPRING_DATASOURCE_CONNECTION_TIMEOUT:30000}
+
+management:
+  endpoint:
+    health:
+      show-details: always
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          enabled: ${OTEL_TRACES_EXPORT_ENABLED:true}
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+
+logging:
+  level:
+    root: INFO
+
+app:
+  link-updater:
+    mode: ${APP_LINK_UPDATER_MODE:VIRTUAL_THREADS}
+    os-threads: ${APP_LINK_UPDATER_OS_THREADS:8}

@@ -1,0 +1,54 @@
+syntax = "proto3";
+package backend.academy.linktracker;
+import "google/protobuf/empty.proto";
+
+option java_package = "backend.academy.linktracker.scrapper.grpc";
+option java_multiple_files = true;
+
+service LinkService {
+    rpc getLinks(GetLinksRequest) returns (ListLinkResponse);
+    rpc getLinksByTag(GetLinksRequestWithTag) returns (ListLinkResponse);
+    rpc addLink(AddLinkRequest) returns (google.protobuf.Empty);
+    rpc removeLink(RemoveLinkRequest) returns (google.protobuf.Empty);
+    rpc addTag(AddTagRequest) returns (google.protobuf.Empty);
+    rpc removeTag(RemoveTagRequest) returns (google.protobuf.Empty);
+}
+
+message RemoveLinkRequest {
+    string link = 1;
+    int64 chatId = 2;
+}
+message AddLinkRequest {
+    string link = 1;
+    int64 chatId = 2;
+    repeated string tags = 3;
+
+}
+message LinkResponse {
+    int64 id = 1;
+    string link = 2;
+    repeated string tags = 3;
+}
+message ListLinkResponse {
+    repeated LinkResponse links = 1;
+    int32 size = 2;
+}
+message GetLinksRequest {
+    int64 chatId = 1;
+}
+message GetLinksRequestWithTag {
+    int64 chatId = 1;
+    string tag = 2;
+}
+message AddTagRequest {
+    int64 chatId = 1;
+    string link = 2;
+    string tag = 3;
+}
+
+message RemoveTagRequest {
+    int64 chatId = 1;
+    string link = 2;
+    string tag = 3;
+}
+

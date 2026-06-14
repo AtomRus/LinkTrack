@@ -1,0 +1,25 @@
+{
+    "request": {
+        "method": "GET",
+        "urlPattern": "/questions/.*"
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "jsonBody": {
+            "items": [
+                {
+                    "last_activity_date": 1742674500,
+                    "question_id": 79912433,
+                    "owner": {
+                        "display_name": "AtomRus"
+                    },
+                    "title": "Mock StackOverflow Question",
+                    "link": "https://stackoverflow.com/questions/79912433"
+                }
+            ]
+        }
+    }
+}

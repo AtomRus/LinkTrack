@@ -1,0 +1,16 @@
+{
+    "request": {
+        "method": "POST",
+        "urlPathPattern": "/bot.*/getUpdates"
+    },
+    "response": {
+        "status": 200,
+        "jsonBody": {
+            "ok": true,
+            "result": []
+        },
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    }
+}

@@ -1,0 +1,50 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: ai-agent
+  config:
+    import: optional:classpath:application-ai-summarization.yaml
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:19092}
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.LongDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.LongSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+
+ai-agent:
+  filtering:
+    stop-words:
+      - spam
+      - ads
+      - promo
+    excluded-authors:
+      - bot-user
+    min-length: 20
+  summarization:
+    mode: ${AI_AGENT_SUMMARIZATION_MODE:stub}
+    threshold: 500
+    huggingface:
+      api-key: ${HUGGINGFACE_API_KEY:}
+      url: ${HUGGINGFACE_ENDPOINT_URL:https://api-inference.huggingface.co/models/facebook/bart-large-cnn}
+  prioritization:
+    high-keywords:
+      - critical
+      - urgent
+      - breaking
+      - security
+    low-keywords:
+      - minor
+      - typo
+      - chore
+      - docs
+  grouping:
+    window-ms: ${AI_AGENT_GROUPING_WINDOW_MS:30000}
+  kafka:
+    raw-topic: ${AI_AGENT_KAFKA_RAW_TOPIC:link.raw-updates}
+    processed-topic: ${AI_AGENT_KAFKA_PROCESSED_TOPIC:link.processed-updates}
+    group-id: ${AI_AGENT_KAFKA_GROUP_ID:ai-agent}

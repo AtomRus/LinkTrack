@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>backend.academy.link-tracker</groupId>
+        <artifactId>parent</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>build-report-aggregate</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>backend.academy.link-tracker</groupId>
+            <artifactId>ai-agent</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>backend.academy.link-tracker</groupId>
+            <artifactId>bot</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>backend.academy.link-tracker</groupId>
+            <artifactId>scrapper</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>backend.academy.link-tracker</groupId>
+            <artifactId>load-service</artifactId>
+            <version>${revision}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>collect-classes-for-jacoco</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <mkdir dir="${project.build.directory}/classes"/>
+                                <copy todir="${project.build.directory}/classes" failonerror="false">
+                                    <fileset dir="${project.basedir}/../ai-agent/target/classes"/>
+                                    <fileset dir="${project.basedir}/../bot/target/classes"/>
+                                    <fileset dir="${project.basedir}/../scrapper/target/classes"/>
+                                    <fileset dir="${project.basedir}/../load-service/target/classes"/>
+                                </copy>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>merge-exec</id>
+                        <goals>
+                            <goal>merge</goal>
+                        </goals>
+                        <phase>verify</phase>
+                        <configuration>
+                            <fileSets>
+                                <fileSet>
+                                    <directory>${project.basedir}/..</directory>
+                                    <includes>
+                                        <include>*/target/jacoco.exec</include>
+                                    </includes>
+                                </fileSet>
+                            </fileSets>
+                            <destFile>${project.build.directory}/jacoco-aggregate.exec</destFile>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>report-aggregate</id>
+                        <goals>
+                            <goal>report-aggregate</goal>
+                        </goals>
+                        <phase>verify</phase>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/dto/**</exclude>
+                                <exclude>**/model/**</exclude>
+                                <exclude>**/properties/**</exclude>
+                                <exclude>**/config/**</exclude>
+                                <exclude>**/*Application.class</exclude>
+                                <exclude>**/repository/jpa/model/**</exclude>
+                                <exclude>**/repository/sql/**</exclude>
+                                <exclude>**/*MapperImpl.class</exclude>
+                                <exclude>**/loadtest/**</exclude>
+                                <exclude>**/state/impl/**</exclude>
+                                <exclude>**/configuration/**</exclude>
+                                <exclude>**/repository/jpa/**</exclude>
+                                <exclude>**/loadtest/*Request.class</exclude>
+                                <exclude>**/loadtest/*Response.class</exclude>
+                                <exclude>**/loadtest/EmitKafkaUpdateHttpRequest.class</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>check-aggregate</id>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <phase>verify</phase>
+                        <configuration>
+                            <dataFile>${project.build.directory}/jacoco-aggregate.exec</dataFile>
+                            <excludes>
+                                <exclude>**/dto/**</exclude>
+                                <exclude>**/model/**</exclude>
+                                <exclude>**/properties/**</exclude>
+                                <exclude>**/config/**</exclude>
+                                <exclude>**/*Application.class</exclude>
+                                <exclude>**/repository/jpa/model/**</exclude>
+                                <exclude>**/repository/sql/**</exclude>
+                                <exclude>**/*MapperImpl.class</exclude>
+                                <exclude>**/loadtest/**</exclude>
+                                <exclude>**/state/impl/**</exclude>
+                                <exclude>**/configuration/**</exclude>
+                                <exclude>**/repository/jpa/**</exclude>
+                                <exclude>**/loadtest/*Request.class</exclude>
+                                <exclude>**/loadtest/*Response.class</exclude>
+                                <exclude>**/loadtest/EmitKafkaUpdateHttpRequest.class</exclude>
+                            </excludes>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>INSTRUCTION</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${jacoco.minimum.coverage}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

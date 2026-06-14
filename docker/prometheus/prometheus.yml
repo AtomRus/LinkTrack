@@ -1,0 +1,40 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: scrapper
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["scrapper:8081"]
+        labels:
+          application: scrapper
+  - job_name: scrapper-perf
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["scrapper-perf:8181"]
+  - job_name: scrapper-perf-single
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["scrapper-perf-single:8081"]
+  - job_name: scrapper-perf-os
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["scrapper-perf-os:8081"]
+  - job_name: bot
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["bot:8011"]
+        labels:
+          application: bot
+  - job_name: load-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["load-service:8090"]
+  - job_name: load-service-single
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["load-service-single:8090"]
+  - job_name: load-service-os
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["load-service-os:8090"]

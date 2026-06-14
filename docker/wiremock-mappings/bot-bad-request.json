@@ -1,0 +1,27 @@
+{
+    "request": {
+        "method": "POST",
+        "url": "/updates",
+        "bodyPatterns": [
+            {
+                "absent": "url"
+            }
+        ]
+    },
+    "response": {
+        "status": 400,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "jsonBody": {
+            "description": "Invalid update request",
+            "code": "400",
+            "exceptionName": "MethodArgumentNotValidException",
+            "exceptionMessage": "Field 'url' must not be null",
+            "stacktrace": [
+                "com.bot.controller.UpdatesController...",
+                "org.springframework.web..."
+            ]
+        }
+    }
+}

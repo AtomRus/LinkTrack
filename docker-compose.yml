@@ -1,0 +1,531 @@
+version: "3.9"
+
+services:
+  scrapper:
+    container_name: scrapper
+    build:
+      context: .
+      dockerfile: scrapper/Dockerfile
+    restart: unless-stopped
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - STACKOVERFLOW_KEY=${STACKOVERFLOW_KEY}
+      - APP_BOT_BASE_URL=http://bot:8080
+      - GRPC_BOT_ADDRESS=static://bot:9092
+      - APP_NOTIFICATIONS_TRANSPORT=kafka
+      - APP_NOTIFICATIONS_KAFKA_RAW_TOPIC=link.raw-updates
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka1:9092,kafka2:9092,kafka3:9092
+      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+      - DB_LOGIN=postgres
+      - DB_PASSWORD=postgres
+      - DB_URL=jdbc:postgresql://postgres:5432/scrapper
+      - SPRING_DATA_REDIS_CLUSTER_NODES=valkey1:6379,valkey2:6379,valkey3:6379
+      - SPRING_DATA_REDIS_TIMEOUT=30s
+      - SPRING_DATA_REDIS_CONNECT_TIMEOUT=15s
+      - APP_CACHE_VALKEY_TTL=60s
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://jaeger:4318/v1/traces
+      - OTEL_TRACES_EXPORT_ENABLED=true
+      - APP_LOAD_TEST_API_ENABLED=true
+    networks:
+      - link-tracker-net
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres
+      - bot
+      - kafka-init
+      - valkey-cluster-init
+      - jaeger
+    env_file: ".env"
+
+  bot:
+    container_name: bot
+    build:
+      context: .
+      dockerfile: bot/Dockerfile
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - GRPC_SCRAPPER_ADDRESS=static://scrapper:9091
+      - APP_SCRAPPER_BASE_URL=http://scrapper:8081
+      - APP_NOTIFICATIONS_KAFKA_TOPIC=link.processed-updates
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka1:9092,kafka2:9092,kafka3:9092
+      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+      - APP_LOAD_TEST_API_ENABLED=true
+    ports:
+      - "8080:8080"
+      - "8011:8011"
+    networks:
+      - link-tracker-net
+    env_file: ".env"
+
+  postgres:
+    env_file:
+      - .env
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: scrapper
+      POSTGRES_DB_PORT: 5432
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - link-tracker-net
+
+  valkey1:
+    image: valkey/valkey:8.0
+    container_name: valkey1
+    command: >
+      sh -c "valkey-server --port 6379 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes --cluster-announce-hostname valkey1"
+    ports:
+      - "6381:6379"
+    networks:
+      - link-tracker-net
+
+  valkey2:
+    image: valkey/valkey:8.0
+    container_name: valkey2
+    command: >
+      sh -c "valkey-server --port 6379 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes --cluster-announce-hostname valkey2"
+    ports:
+      - "6382:6379"
+    networks:
+      - link-tracker-net
+
+  valkey3:
+    image: valkey/valkey:8.0
+    container_name: valkey3
+    command: >
+      sh -c "valkey-server --port 6379 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes --cluster-announce-hostname valkey3"
+    ports:
+      - "6383:6379"
+    networks:
+      - link-tracker-net
+
+  valkey-cluster-init:
+    image: valkey/valkey:8.0
+    container_name: valkey-cluster-init
+    depends_on:
+      - valkey1
+      - valkey2
+      - valkey3
+    networks:
+      - link-tracker-net
+    entrypoint: ["/bin/sh", "-lc"]
+    command:
+      - |
+        set -e
+        until valkey-cli -h valkey1 -p 6379 ping | grep -q PONG; do echo "waiting valkey1"; sleep 1; done
+        until valkey-cli -h valkey2 -p 6379 ping | grep -q PONG; do echo "waiting valkey2"; sleep 1; done
+        until valkey-cli -h valkey3 -p 6379 ping | grep -q PONG; do echo "waiting valkey3"; sleep 1; done
+        if ! valkey-cli -h valkey1 -p 6379 cluster info 2>/dev/null | grep -q "cluster_state:ok"; then
+          if ! yes yes | valkey-cli --cluster create valkey1:6379 valkey2:6379 valkey3:6379 --cluster-replicas 0; then
+            echo "Valkey cluster create failed"
+            exit 1
+          fi
+        fi
+        attempt=0
+        until valkey-cli -h valkey1 -p 6379 cluster info 2>/dev/null | grep -q "cluster_state:ok"; do
+          attempt=$$((attempt + 1))
+          if [ "$$attempt" -ge 30 ]; then
+            echo "cluster_state never became ok"
+            exit 1
+          fi
+          sleep 2
+        done
+        valkey-cli -h valkey1 -p 6379 ping
+        echo "Valkey cluster initialized (cluster_state ok)"
+  wiremock:
+    image: wiremock/wiremock:3.3.1
+    container_name: wiremock
+    command: [ "--port", "8085" ]
+    ports:
+      - "8085:8085"
+    volumes:
+      - ./docker/wiremock-mappings:/home/wiremock/mappings
+    networks:
+      - link-tracker-net
+
+  kafka1:
+    image: bitnamilegacy/kafka:latest
+    container_name: kafka1
+    networks:
+      - link-tracker-net
+    ports:
+      - "19092:19092"
+    environment:
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_KRAFT_CLUSTER_ID=abcdefghijklmnopqrstuv
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:19092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka1:9092,PLAINTEXT_HOST://localhost:19092
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+
+  kafka2:
+    image: bitnamilegacy/kafka:latest
+    container_name: kafka2
+    networks:
+      - link-tracker-net
+    ports:
+      - "19093:19093"
+    environment:
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_KRAFT_CLUSTER_ID=abcdefghijklmnopqrstuv
+      - KAFKA_CFG_NODE_ID=2
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:19093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka2:9092,PLAINTEXT_HOST://localhost:19093
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+
+  kafka3:
+    image: bitnamilegacy/kafka:latest
+    container_name: kafka3
+    networks:
+      - link-tracker-net
+    ports:
+      - "19094:19094"
+    environment:
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_KRAFT_CLUSTER_ID=abcdefghijklmnopqrstuv
+      - KAFKA_CFG_NODE_ID=3
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:19094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka3:9092,PLAINTEXT_HOST://localhost:19094
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+
+  kafka-init:
+    image: bitnamilegacy/kafka:latest
+    container_name: kafka-init
+    networks:
+      - link-tracker-net
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - |
+        /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka1:9092 --create --if-not-exists --topic link_updates --partitions 3 --replication-factor 3 --config min.insync.replicas=2
+        /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka1:9092 --create --if-not-exists --topic link_updates_dlq --partitions 3 --replication-factor 3 --config min.insync.replicas=2
+        /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka1:9092 --create --if-not-exists --topic link.raw-updates --partitions 3 --replication-factor 3 --config min.insync.replicas=2
+        /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka1:9092 --create --if-not-exists --topic link.processed-updates --partitions 3 --replication-factor 3 --config min.insync.replicas=2
+        echo "Топики Kafka созданы."
+        sleep 2
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.1
+    container_name: schema-registry
+    networks:
+      - link-tracker-net
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    ports:
+      - "8086:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka1:9092,PLAINTEXT://kafka2:9092,PLAINTEXT://kafka3:9092
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    networks:
+      - link-tracker-net
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - scrapper
+      - bot
+    networks:
+      - link-tracker-net
+
+  grafana:
+    image: grafana/grafana-oss:11.5.2
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - link-tracker-net
+
+  postgres-perf:
+    profiles:
+      - performance
+    image: postgres:16
+    restart: unless-stopped
+    command: ["postgres", "-c", "max_connections=200"]
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: scrapper_perf
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata-perf:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d scrapper_perf"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - link-tracker-net
+
+  scrapper-perf:
+    profiles:
+      - performance
+    container_name: scrapper-perf
+    build:
+      context: .
+      dockerfile: scrapper/Dockerfile
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=performance
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - STACKOVERFLOW_KEY=${STACKOVERFLOW_KEY}
+      - APP_BOT_BASE_URL=http://bot:8080
+      - GRPC_BOT_ADDRESS=static://bot:9092
+      - APP_NOTIFICATIONS_TRANSPORT=kafka
+      - APP_NOTIFICATIONS_KAFKA_TOPIC=link_updates
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka1:9092,kafka2:9092,kafka3:9092
+      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+      - DB_LOGIN=postgres
+      - DB_PASSWORD=postgres
+      - DB_URL=jdbc:postgresql://postgres-perf:5432/scrapper_perf
+      - SPRING_DATA_REDIS_CLUSTER_NODES=valkey1:6379,valkey2:6379,valkey3:6379
+      - SPRING_DATA_REDIS_TIMEOUT=30s
+      - SPRING_DATA_REDIS_CONNECT_TIMEOUT=15s
+      - APP_CACHE_VALKEY_TTL=60s
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://jaeger:4318/v1/traces
+      - OTEL_TRACES_EXPORT_ENABLED=true
+      - TRACING_SAMPLING_PROBABILITY=1.0
+      - APP_LOAD_TEST_API_ENABLED=true
+      - APP_LINK_UPDATER_MODE=VIRTUAL_THREADS
+      - APP_LINK_UPDATER_OS_THREADS=8
+      - SPRING_DATASOURCE_MAXIMUM_POOL_SIZE=15
+    ports:
+      - "8181:8081"
+    depends_on:
+      postgres-perf:
+        condition: service_healthy
+      bot:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+      valkey-cluster-init:
+        condition: service_completed_successfully
+      jaeger:
+        condition: service_started
+    networks:
+      - link-tracker-net
+
+  load-service:
+    profiles:
+      - performance
+    container_name: load-service
+    build:
+      context: .
+      dockerfile: load-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      - GRPC_SCRAPPER_ADDRESS=static://scrapper-perf:9091
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - STACKOVERFLOW_KEY=${STACKOVERFLOW_KEY}
+      - LOAD_TEST_BOT_BASE_URL=http://bot:8080
+      - LOAD_TEST_SCRAPPER_HTTP_URL=http://scrapper-perf:8081
+    ports:
+      - "8090:8090"
+    depends_on:
+      valkey-cluster-init:
+        condition: service_completed_successfully
+      postgres-perf:
+        condition: service_healthy
+    networks:
+      - link-tracker-net
+
+  scrapper-perf-single:
+    profiles:
+      - performance
+    container_name: scrapper-perf-single
+    build:
+      context: .
+      dockerfile: scrapper/Dockerfile
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=performance
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - STACKOVERFLOW_KEY=${STACKOVERFLOW_KEY}
+      - APP_BOT_BASE_URL=http://bot:8080
+      - GRPC_BOT_ADDRESS=static://bot:9092
+      - APP_NOTIFICATIONS_TRANSPORT=kafka
+      - APP_NOTIFICATIONS_KAFKA_TOPIC=link_updates
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka1:9092,kafka2:9092,kafka3:9092
+      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+      - DB_LOGIN=postgres
+      - DB_PASSWORD=postgres
+      - DB_URL=jdbc:postgresql://postgres-perf:5432/scrapper_perf
+      - SPRING_DATA_REDIS_CLUSTER_NODES=valkey1:6379,valkey2:6379,valkey3:6379
+      - SPRING_DATA_REDIS_TIMEOUT=30s
+      - SPRING_DATA_REDIS_CONNECT_TIMEOUT=15s
+      - APP_CACHE_VALKEY_TTL=60s
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://jaeger:4318/v1/traces
+      - OTEL_TRACES_EXPORT_ENABLED=true
+      - TRACING_SAMPLING_PROBABILITY=1.0
+      - APP_LOAD_TEST_API_ENABLED=true
+      - APP_LINK_UPDATER_MODE=SINGLE_THREAD
+      - APP_LINK_UPDATER_OS_THREADS=1
+      - SPRING_DATASOURCE_MAXIMUM_POOL_SIZE=15
+    ports:
+      - "8182:8081"
+    depends_on:
+      postgres-perf:
+        condition: service_healthy
+      bot:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+      valkey-cluster-init:
+        condition: service_completed_successfully
+      jaeger:
+        condition: service_started
+    networks:
+      - link-tracker-net
+
+  scrapper-perf-os:
+    profiles:
+      - performance
+    container_name: scrapper-perf-os
+    build:
+      context: .
+      dockerfile: scrapper/Dockerfile
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=performance
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - STACKOVERFLOW_KEY=${STACKOVERFLOW_KEY}
+      - APP_BOT_BASE_URL=http://bot:8080
+      - GRPC_BOT_ADDRESS=static://bot:9092
+      - APP_NOTIFICATIONS_TRANSPORT=kafka
+      - APP_NOTIFICATIONS_KAFKA_TOPIC=link_updates
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka1:9092,kafka2:9092,kafka3:9092
+      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+      - DB_LOGIN=postgres
+      - DB_PASSWORD=postgres
+      - DB_URL=jdbc:postgresql://postgres-perf:5432/scrapper_perf
+      - SPRING_DATA_REDIS_CLUSTER_NODES=valkey1:6379,valkey2:6379,valkey3:6379
+      - SPRING_DATA_REDIS_TIMEOUT=30s
+      - SPRING_DATA_REDIS_CONNECT_TIMEOUT=15s
+      - APP_CACHE_VALKEY_TTL=60s
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://jaeger:4318/v1/traces
+      - OTEL_TRACES_EXPORT_ENABLED=true
+      - TRACING_SAMPLING_PROBABILITY=1.0
+      - APP_LOAD_TEST_API_ENABLED=true
+      - APP_LINK_UPDATER_MODE=OS_THREADS
+      - APP_LINK_UPDATER_OS_THREADS=16
+      - SPRING_DATASOURCE_MAXIMUM_POOL_SIZE=15
+    ports:
+      - "8183:8081"
+    depends_on:
+      postgres-perf:
+        condition: service_healthy
+      bot:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+      valkey-cluster-init:
+        condition: service_completed_successfully
+      jaeger:
+        condition: service_started
+    networks:
+      - link-tracker-net
+
+  load-service-single:
+    profiles:
+      - performance
+    container_name: load-service-single
+    build:
+      context: .
+      dockerfile: load-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      - GRPC_SCRAPPER_ADDRESS=static://scrapper-perf-single:9091
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - STACKOVERFLOW_KEY=${STACKOVERFLOW_KEY}
+      - LOAD_TEST_BOT_BASE_URL=http://bot:8080
+      - LOAD_TEST_SCRAPPER_HTTP_URL=http://scrapper-perf-single:8081
+    ports:
+      - "8091:8090"
+    depends_on:
+      - scrapper-perf-single
+    networks:
+      - link-tracker-net
+
+  load-service-os:
+    profiles:
+      - performance
+    container_name: load-service-os
+    build:
+      context: .
+      dockerfile: load-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      - GRPC_SCRAPPER_ADDRESS=static://scrapper-perf-os:9091
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - STACKOVERFLOW_KEY=${STACKOVERFLOW_KEY}
+      - LOAD_TEST_BOT_BASE_URL=http://bot:8080
+      - LOAD_TEST_SCRAPPER_HTTP_URL=http://scrapper-perf-os:8081
+    ports:
+      - "8092:8090"
+    depends_on:
+      - scrapper-perf-os
+    networks:
+      - link-tracker-net
+
+volumes:
+  pgdata:
+  pgdata-perf:
+
+networks:
+  link-tracker-net:
+    driver: bridge

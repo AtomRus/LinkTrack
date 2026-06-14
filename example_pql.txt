@@ -1,0 +1,91 @@
+# PromQL-запросы для дашбордов Link Tracker
+# Micrometer экспортирует Timer в секундах (*_seconds), Counter — с суффиксом *_total
+
+# =============================================================================
+# RED-дашборд (переменная $application: bot | scrapper)
+# =============================================================================
+
+# Rate — HTTP-запросы в секунду
+sum(rate(http_server_requests_seconds_count{application="$application"}[1m]))
+
+# Rate — gRPC-запросы в секунду (Scrapper)
+sum(rate(grpc_server_requests_seconds_count{application="$application"}[1m]))
+
+# Rate — суммарная пропускная способность HTTP + gRPC
+sum(rate(http_server_requests_seconds_count{application="$application"}[1m]))
++ sum(rate(grpc_server_requests_seconds_count{application="$application"}[1m]))
+
+# Errors — доля HTTP-ошибок (5xx) в секунду
+sum(rate(http_server_requests_seconds_count{application="$application",status=~"5.."}[1m]))
+
+# Duration — 95-й перцентиль HTTP-латентности (секунды)
+histogram_quantile(0.95,
+  sum(rate(http_server_requests_seconds_bucket{application="$application"}[5m])) by (le))
+
+# Duration — 95-й перцентиль gRPC-латентности (секунды)
+histogram_quantile(0.95,
+  sum(rate(grpc_server_requests_seconds_bucket{application="$application"}[5m])) by (le))
+
+# Memory — используемая JVM-память по областям (heap / nonheap)
+sum(jvm_memory_used_bytes{application="$application"}) by (area)
+
+# Memory — heap RAM (для алерта)
+sum(jvm_memory_used_bytes{application="$application", area="heap"})
+
+# =============================================================================
+# Бизнес-дашборд (переменная $application: bot | scrapper)
+# =============================================================================
+
+# Bot — пользовательские сообщения в секунду
+sum(rate(user_messages_total{application="bot"}[1m]))
+
+# Bot — сообщения по типу запроса (FR-2: request_type)
+sum(rate(user_messages_total{application="bot"}[1m])) by (request_type)
+
+# Bot — запросы к Telegram-боту (входящие сообщения)
+sum(rate(user_messages_total{application="bot"}[1m]))
+
+# Bot — обработанные команды в секунду
+sum(rate(command_requests_total{application="bot"}[1m])) by (command)
+
+# Bot — отправленные нотификации в секунду
+sum(rate(sent_notification_total{application="bot"}[1m]))
+
+# Bot — перцентили длительности обработки команды (мс → секунды в метрике)
+histogram_quantile(0.50,
+  sum(rate(command_duration_ms_seconds_bucket{application="bot", scope="telegram_command"}[5m])) by (le, scope_type))
+histogram_quantile(0.95,
+  sum(rate(command_duration_ms_seconds_bucket{application="bot", scope="telegram_command"}[5m])) by (le, scope_type))
+histogram_quantile(0.99,
+  sum(rate(command_duration_ms_seconds_bucket{application="bot", scope="telegram_command"}[5m])) by (le, scope_type))
+
+# Bot — перцентили вызовов Scrapper gRPC API
+histogram_quantile(0.95,
+  sum(rate(command_duration_ms_seconds_bucket{application="bot", scope="scrapper_sync_api"}[5m])) by (le, scope_type))
+
+# Scrapper — активные ссылки на мониторинге по домену
+links_on_track_total{application="scrapper"}
+
+# Scrapper — перцентили длительности scrape-операции по источнику
+histogram_quantile(0.50,
+  sum(rate(request_duration_ms_seconds_bucket{application="scrapper", scope="external_source", scope_type=~"github|stackoverflow"}[5m])) by (le, scope_type))
+histogram_quantile(0.95,
+  sum(rate(request_duration_ms_seconds_bucket{application="scrapper", scope="external_source", scope_type=~"github|stackoverflow"}[5m])) by (le, scope_type))
+histogram_quantile(0.99,
+  sum(rate(request_duration_ms_seconds_bucket{application="scrapper", scope="external_source", scope_type=~"github|stackoverflow"}[5m])) by (le, scope_type))
+
+# Scrapper — запросы к API по источнику
+sum(rate(api_requests_total{application="scrapper"}[1m])) by (source)
+
+# Scrapper — длительность операций с БД
+histogram_quantile(0.95,
+  sum(rate(request_duration_ms_seconds_bucket{application="scrapper", scope="database"}[5m])) by (le, scope_type))
+
+# Scrapper — длительность публикации в Kafka
+histogram_quantile(0.95,
+  sum(rate(request_duration_ms_seconds_bucket{application="scrapper", scope="kafka"}[5m])) by (le, scope_type))
+
+# =============================================================================
+# Алерт — высокое потребление heap-памяти (> 400 MiB)
+# =============================================================================
+sum(jvm_memory_used_bytes{application="$application", area="heap"}) > 4.194304e+08

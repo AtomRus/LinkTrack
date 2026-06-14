@@ -1,0 +1,24 @@
+spring:
+  scheduler:
+    interval: 40s
+
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          enabled: false
+
+# Test classpath application.yaml is loaded with higher priority than main; duplicate required app.* bindings.
+app:
+  github:
+    token: ${GITHUB_TOKEN:test-token}
+    link: https://api.github.com
+  stackoverflow:
+    key: ${STACKOVERFLOW_KEY:test-key}
+    access-token: ${STACKOVERFLOW_ACCESS_KEY:test-access}
+    link: https://api.stackexchange.com/2.3

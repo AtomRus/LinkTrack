@@ -1,0 +1,34 @@
+{
+    "request": {
+        "method": "GET",
+        "url": "/links",
+        "headers": {
+            "Tg-Chat-Id": {
+                "matches": "[0-9]+"
+            }
+        }
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "jsonBody": {
+            "links": [
+                {
+                    "id": 1,
+                    "url": "https://github.com/sanyarnd/tinkoff-java-course-2024",
+                    "tags": ["java"],
+                    "filters": []
+                },
+                {
+                    "id": 2,
+                    "url": "https://stackoverflow.com/questions/123",
+                    "tags": [],
+                    "filters": []
+                }
+            ],
+            "size": 2
+        }
+    }
+}

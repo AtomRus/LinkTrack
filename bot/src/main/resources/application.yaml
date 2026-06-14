@@ -1,0 +1,72 @@
+server:
+  port: 8080
+
+management:
+  server:
+    port: 8011
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health,info,prometheus
+      path-mapping:
+        prometheus: metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+    prometheus:
+      access: unrestricted
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        command_duration_ms: true
+        user_messages: true
+        linktracker.kafka.e2e.latency: true
+
+spring:
+  application:
+    name: bot
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:19092}
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+    properties:
+      spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.LongDeserializer
+      spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      spring.json.value.default.type: backend.academy.linktracker.bot.dto.ProcessedLinkUpdateEvent
+      spring.json.trusted.packages: backend.academy.linktracker.bot.dto
+
+  grpc:
+    server:
+      port: 9092
+    client:
+      bot-service:
+        negotiation-type: plaintext
+
+app:
+  load-test:
+    api-enabled: ${APP_LOAD_TEST_API_ENABLED:false}
+  notifications:
+    kafka:
+      topic: ${APP_NOTIFICATIONS_KAFKA_TOPIC:link.processed-updates}
+      group-id: ${APP_NOTIFICATIONS_KAFKA_GROUP_ID:bot-link-updates}
+      dlq-topic: ${APP_NOTIFICATIONS_KAFKA_DLQ_TOPIC:link_updates_dlq}
+      retry-max-attempts: ${APP_NOTIFICATIONS_KAFKA_RETRY_MAX_ATTEMPTS:3}
+      retry-backoff-ms: ${APP_NOTIFICATIONS_KAFKA_RETRY_BACKOFF_MS:1000}
+  telegram:
+    url: ${TELEGRAM_API_URL:https://api.telegram.org/bot}
+    token: ${TELEGRAM_TOKEN}
+    update-listener-sleep: 1s
+    debug: false
+
+logging:
+  structured:
+    format:
+      file: ecs
+  file:
+    name: bot/logs/dev-application.json
