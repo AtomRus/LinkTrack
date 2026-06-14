@@ -129,11 +129,9 @@ java -jar ai-agent/target/ai-agent-*.jar
 # все модули
 mvn clean verify
 
-# покрытие JaCoCo (порог 80%)
 mvn clean verify -pl build-report-aggregate -am
 ```
 
-Отчёт покрытия: `build-report-aggregate/target/site/jacoco-aggregate/index.html`
 
 ## Команды бота
 
