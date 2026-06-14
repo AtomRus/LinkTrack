@@ -3,26 +3,57 @@
 LinkTracker - Telegram-бот, который отслеживает изменения на GitHub-репозиториях и вопросах Stack Overflow и оперативно информирует пользователя о них.
 
 ## Архитектура
+```mermaid
+graph TD
 
-```text
-Telegram User
-    → bot (8080 / metrics 8011)
-        → gRPC → scrapper (8081 / gRPC 9091)
-            → GitHub API, Stack Overflow API
-            → PostgreSQL, Valkey
-            → Kafka (link.raw-updates)
-                → ai-agent (8082, опционально)
-                    → Kafka (link.processed-updates)
-                        → bot → Telegram
+    classDef user fill:#248bc2,stroke:#1a658f,stroke-width:2px,color:#fff;
+    classDef service fill:#2d3748,stroke:#1a202c,stroke-width:2px,color:#fff;
+    classDef db fill:#2f855a,stroke:#22543d,stroke-width:2px,color:#fff;
+    classDef broker fill:#b7791f,stroke:#744210,stroke-width:2px,color:#fff;
+    classDef ext fill:#4a5568,stroke:#2d3748,stroke-width:1px,color:#cbd5e0;
+
+    TG[Telegram User]:::user
+    
+    BOT[" bot <br> (8080 / metrics 8011)"]:::service
+    SCRAP[" scrapper <br> (8081 / gRPC 9091)"]:::service
+    AI[" ai-agent <br> (8082, опционально)"]:::service
+    
+    DB_PG[(PostgreSQL)]:::db
+    DB_VK[(Valkey)]:::db
+    
+    K_RAW{{" Kafka <br> (link.raw-updates)"}}:::broker
+    K_PROC{{" Kafka <br> (link.processed-updates)"}}:::broker
+    
+    API_GH[GitHub API]:::ext
+    API_SO[Stack Overflow API]:::ext
+
+    %% Связи и потоки данных
+    TG -->|Взаимодействие| BOT
+    BOT -->|gRPC| SCRAP
+    
+    SCRAP --> DB_PG
+    SCRAP --> DB_VK
+    SCRAP --> API_GH
+    SCRAP --> API_SO
+    
+    SCRAP -->|Publish| K_RAW
+    K_RAW -->|Consume| AI
+    
+    AI -->|Publish| K_PROC
+    K_PROC -->|Consume| BOT
+    
+    BOT -->|Уведомление| TG
+
+    %% Аннотация для обходного пути, если ai-agent выключен
+    K_RAW -.->|Если AI отключен| BOT
 ```
 
-| Модуль | Назначение |
 
-| `scrapper` | Хранение ссылок, polling внешних API, отправка уведомлений |
-| `bot` | Telegram UI, gRPC-клиент к scrapper, consumer Kafka |
-| `ai-agent` | Фильтрация, суммаризация и группировка событий из Kafka |
-| `load-service` | Нагрузочное тестирование (профиль `performance`) |
-| `common-proto` | gRPC-контракты и Avro-схемы |
+ `scrapper`  Хранение ссылок, polling внешних API, отправка уведомлений 
+ `bot`  Telegram UI, gRPC-клиент к scrapper, consumer Kafka 
+ `ai-agent`  Фильтрация, суммаризация и группировка событий из Kafka 
+ `load-service`  Нагрузочное тестирование (профиль `performance`) 
+ `common-proto`  gRPC-контракты и Avro-схемы 
 
 Подробнее о мониторинге: [OBSERVABILITY.md](OBSERVABILITY.md).
 
@@ -54,14 +85,14 @@ docker compose up --build
 
 После старта доступны:
 
-| Сервис | URL |
-| Bot (HTTP) | http://localhost:8080 |
-| Bot metrics | http://localhost:8011/metrics |
-| Scrapper (HTTP) | http://localhost:8081 |
-| Scrapper metrics | http://localhost:8081/metrics |
-| Prometheus | http://localhost:9090 |
-| Grafana | http://localhost:3000 (admin / admin) |
-| Jaeger UI | http://localhost:16686 |
+ Сервис URL 
+ Bot (HTTP)| http://localhost:8080 
+ Bot metrics  http://localhost:8011/metrics 
+ Scrapper (HTTP)  http://localhost:8081 
+ Scrapper metrics  http://localhost:8081/metrics 
+ Prometheus  http://localhost:9090 
+ Grafana  http://localhost:3000 (admin / admin) 
+ Jaeger UI  http://localhost:16686 
 
 ### 3. Остановка
 
@@ -106,14 +137,14 @@ mvn clean verify -pl build-report-aggregate -am
 
 ## Команды бота
 
-| Команда | Описание |
-| `/start` | Главное меню |
-| `/help` | Справка |
-| `/track` | Добавить ссылку на отслеживание |
-| `/untrack` | Убрать ссылку |
-| `/list` | Список отслеживаемых ссылок |
-| `/addTag` | Добавить тег к ссылке |
-| `/removeTag` | Удалить тег |
+ Команда  Описание 
+ `/start`  Главное меню 
+ `/help`  Справка 
+ `/track`  Добавить ссылку на отслеживание 
+ `/untrack`  Убрать ссылку 
+ `/list`  Список отслеживаемых ссылок 
+ `/addTag`  Добавить тег к ссылке 
+ `/removeTag`  Удалить тег 
 
 Поддерживаемые источники: `github.com`, `stackoverflow.com`.
 
